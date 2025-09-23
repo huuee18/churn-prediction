@@ -12,6 +12,12 @@ def train_lstm(X_train, y_train, X_test, y_test, timesteps, input_dim, epochs=20
     results = {
         'accuracy': accuracy_score(y_test, y_pred),
         'auc_roc': roc_auc_score(y_test, y_prob),
-        'auc_pr': average_precision_score(y_test, y_prob)
+        'auc_pr': average_precision_score(y_test, y_prob),
+        'precision': precision_score(y_test, y_pred),
+        'recall': recall_score(y_test, y_pred),
+        'f1': f1_score(y_test, y_pred),
+        'confusion_matrix': confusion_matrix(y_test, y_pred),
+        'y_pred': y_pred,      # lưu lại để không phải predict lại
+        'y_prob': y_prob       # dùng vẽ ROC/PR
     }
     return model, results, y_pred, y_prob
