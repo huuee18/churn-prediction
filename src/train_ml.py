@@ -1,9 +1,13 @@
-from sklearn.metrics import accuracy_score, roc_auc_score, average_precision_score, f1_score, recall_score, confusion_matrix
+from sklearn.metrics import (
+    accuracy_score, roc_auc_score, average_precision_score,
+    f1_score, recall_score, confusion_matrix
+)
 
 def evaluate_model(model, X_test, y_test):
-    """Huấn luyện xong rồi truyền model + X_test, y_test để lấy metrics"""
+    """Đánh giá model bằng các metric chính"""
     y_pred = model.predict(X_test)
     y_prob = model.predict_proba(X_test)[:, 1]
+
     return {
         'accuracy': accuracy_score(y_test, y_pred),
         'auc_roc': roc_auc_score(y_test, y_prob),
