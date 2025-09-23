@@ -1,6 +1,6 @@
 from sklearn.metrics import (
     accuracy_score, roc_auc_score, average_precision_score,
-    f1_score, recall_score, confusion_matrix
+    f1_score, recall_score, precision_score, confusion_matrix
 )
 
 def evaluate_model(model, X_test, y_test):
@@ -12,8 +12,9 @@ def evaluate_model(model, X_test, y_test):
         'accuracy': accuracy_score(y_test, y_pred),
         'auc_roc': roc_auc_score(y_test, y_prob),
         'auc_pr': average_precision_score(y_test, y_prob),
-        'f1': f1_score(y_test, y_pred),
+        'precision': precision_score(y_test, y_pred),
         'recall': recall_score(y_test, y_pred),
+        'f1': f1_score(y_test, y_pred),
         'confusion_matrix': confusion_matrix(y_test, y_pred),
         'y_pred': y_pred,
         'y_prob': y_prob
