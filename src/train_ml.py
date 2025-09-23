@@ -4,7 +4,7 @@ from sklearn.metrics import (
 )
 
 def evaluate_model(model, X_test, y_test):
-    """Đánh giá model bằng các metric chính"""
+    """Đánh giá model và lưu cả dự đoán"""
     y_pred = model.predict(X_test)
     y_prob = model.predict_proba(X_test)[:, 1]
 
@@ -16,8 +16,8 @@ def evaluate_model(model, X_test, y_test):
         'recall': recall_score(y_test, y_pred),
         'f1': f1_score(y_test, y_pred),
         'confusion_matrix': confusion_matrix(y_test, y_pred),
-        'y_pred': y_pred,
-        'y_prob': y_prob
+        'y_pred': y_pred,      # lưu lại để không phải predict lại
+        'y_prob': y_prob       # dùng vẽ ROC/PR
     }
 
 def train_ml_models(models_tree, model_linear,
