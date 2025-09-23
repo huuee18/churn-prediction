@@ -1,6 +1,6 @@
 import numpy as np
 from sklearn.metrics import roc_auc_score, accuracy_score, average_precision_score
-from src.models import build_lstm_model
+from models import build_lstm_model
 
 def train_lstm(X_train, y_train, X_test, y_test, timesteps, input_dim, epochs=20, batch_size=16):
     model = build_lstm_model(timesteps, input_dim)
