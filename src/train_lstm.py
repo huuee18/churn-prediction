@@ -50,4 +50,4 @@ def train_lstm(X_train, y_train, X_test, y_test,
         'confusion_matrix': confusion_matrix(y_test, y_pred),
         'results_df': results_df
     }
-    return model, metrics
+    return model, metrics, y_pred, y_prob
