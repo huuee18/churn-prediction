@@ -1,18 +1,35 @@
-import numpy as np
+import pandas as pd
 from sklearn.metrics import (
     accuracy_score, roc_auc_score, average_precision_score,
     f1_score, recall_score, precision_score, confusion_matrix
 )
-from src.models import build_lstm_model
 
-def train_lstm(X_train, y_train, X_test, y_test, timesteps, input_dim, epochs=20, batch_size=16):
-    model = build_lstm_model(timesteps, input_dim)
-    model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size, validation_split=0.1, verbose=1)
 
-    y_pred = (model.predict(X_test) > 0.5).astype(int).flatten()
-    y_prob = model.predict(X_test).flatten()
+def evaluate_model(model, X_test, y_test,
+                   threshold_high=0.7, threshold_low=0.3):
+    """Đánh giá model và lưu cả dự đoán với risk level"""
+    y_pred = model.predict(X_test)
+    y_prob = model.predict_proba(X_test)[:, 1]
 
-    results = {
+    # Xác định mức độ rủi ro
+    risk_level = []
+    for p in y_prob:
+        if p >= threshold_high:
+            risk_level.append("High churn risk")
+        elif p <= threshold_low:
+            risk_level.append("Low churn risk")
+        else:
+            risk_level.append("Medium churn risk")
+
+    # DataFrame kết quả chi tiết
+    results_df = pd.DataFrame({
+        "y_true": y_test,
+        "y_pred": y_pred,
+        "churn_prob": y_prob,
+        "risk_level": risk_level
+    })
+
+    metrics = {
         'accuracy': accuracy_score(y_test, y_pred),
         'auc_roc': roc_auc_score(y_test, y_prob),
         'auc_pr': average_precision_score(y_test, y_prob),
@@ -20,7 +37,23 @@ def train_lstm(X_train, y_train, X_test, y_test, timesteps, input_dim, epochs=20
         'recall': recall_score(y_test, y_pred),
         'f1': f1_score(y_test, y_pred),
         'confusion_matrix': confusion_matrix(y_test, y_pred),
-        'y_pred': y_pred,      # lưu lại để không phải predict lại
-        'y_prob': y_prob       # dùng vẽ ROC/PR
+        'results_df': results_df  # lưu DataFrame để xuất/ghi file
     }
-    return model, results, y_pred, y_prob
+    return metrics
+
+
+def train_ml_models(models_tree, model_linear,
+                    X_train_tree, y_train_tree, X_test_tree, y_test_tree,
+                    X_train_linear, y_train_linear, X_test_linear, y_test_linear):
+    results = {}
+
+    # Train tree-based models
+    for name, model in models_tree.items():
+        model.fit(X_train_tree, y_train_tree)
+        results[name] = evaluate_model(model, X_test_tree, y_test_tree)
+
+    # Logistic Regression
+    model_linear.fit(X_train_linear, y_train_linear)
+    results['Logistic Regression'] = evaluate_model(model_linear, X_test_linear, y_test_linear)
+
+    return results
