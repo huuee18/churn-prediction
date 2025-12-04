@@ -42,18 +42,38 @@ def evaluate_model(model, X_test, y_test,
     return metrics
 
 
-def train_ml_models(models_tree, model_linear,
-                    X_train_tree, y_train_tree, X_test_tree, y_test_tree,
-                    X_train_linear, y_train_linear, X_test_linear, y_test_linear):
+def train_ts_models(models, X_train, y_train, X_test, y_test, timesteps, input_dim, epochs=10, batch_size=32):
     results = {}
 
-    # Train tree-based models
-    for name, model in models_tree.items():
-        model.fit(X_train_tree, y_train_tree)
-        results[name] = evaluate_model(model, X_test_tree, y_test_tree)
+    for name, build_fn in models.items():
+        print(f"\n🔵 Training model: {name}")
+        model = build_fn(timesteps, input_dim)
 
-    # Logistic Regression
-    model_linear.fit(X_train_linear, y_train_linear)
-    results['Logistic Regression'] = evaluate_model(model_linear, X_test_linear, y_test_linear)
+        history = model.fit(
+            X_train, y_train,
+            validation_data=(X_test, y_test),
+            epochs=epochs,
+            batch_size=batch_size,
+            verbose=1
+        )
+
+        y_prob = model.predict(X_test).flatten()
+        y_pred = (y_prob >= 0.5).astype(int)
+
+        from sklearn.metrics import accuracy_score, roc_auc_score, average_precision_score, precision_score, recall_score, f1_score, confusion_matrix
+        
+        results[name] = {
+            "accuracy": accuracy_score(y_test, y_pred),
+            "roc_auc": roc_auc_score(y_test, y_prob),
+            "auc_pr": average_precision_score(y_test, y_prob),
+            "precision": precision_score(y_test, y_pred),
+            "recall": recall_score(y_test, y_pred),
+            "f1": f1_score(y_test, y_pred),
+            "confusion_matrix": confusion_matrix(y_test, y_pred),
+            "y_pred": y_pred,
+            "y_prob": y_prob,
+            "model": model
+        }
 
     return results
+
