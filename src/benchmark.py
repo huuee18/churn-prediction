@@ -1,31 +1,30 @@
 import pandas as pd
 
-def compare_models(results_ml, results_lstm, lstm_name="LSTM"):
-    """So sánh kết quả ML models và LSTM model"""
+def compare_models(results_ts):
+    """
+    So sánh tất cả các mô hình time-series.
+    
+    results_ts: dict chứa kết quả của nhiều mô hình
+    {
+        "LSTM_Attention": {...},
+        "GRU": {...},
+        "BiLSTM": {...},
+        "Transformer": {...},
+        "TCN": {...}
+    }
+    """
     rows = []
 
-    # ML models
-    for name, res in results_ml.items():
+    for name, res in results_ts.items():
         rows.append({
-            'Model': name,
-            'Accuracy': res['accuracy'],
-            'AUC-ROC': res['auc_roc'],
-            'AUC-PR': res['auc_pr'],
-            'Precision': res['precision'],
-            'Recall': res['recall'],
-            'F1': res['f1']
+            "Model": name,
+            "Accuracy": res.get("accuracy"),
+            "AUC-ROC": res.get("roc_auc"),
+            "AUC-PR": res.get("auc_pr"),
+            "Precision": res.get("precision"),
+            "Recall": res.get("recall"),
+            "F1": res.get("f1")
         })
-
-    # LSTM
-    rows.append({
-        'Model': lstm_name,
-        'Accuracy': results_lstm['accuracy'],
-        'AUC-ROC': results_lstm['auc_roc'],
-        'AUC-PR': results_lstm['auc_pr'],
-        'Precision': results_lstm.get('precision', None),  # nếu bạn thêm vào train_lstm
-        'Recall': results_lstm.get('recall', None),
-        'F1': results_lstm.get('f1', None)
-    })
 
     df_results = pd.DataFrame(rows)
     return df_results
