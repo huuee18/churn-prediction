@@ -1,18 +1,9 @@
 import pandas as pd
 
 def compare_models(results_ts):
-    """
-    So sánh tất cả các mô hình time-series.
-    
-    results_ts: dict chứa kết quả của nhiều mô hình
-    {
-        "LSTM_Attention": {...},
-        "GRU": {...},
-        "BiLSTM": {...},
-        "Transformer": {...},
-        "TCN": {...}
-    }
-    """
+    if not results_ts:
+        raise ValueError("results_ts is empty")
+
     rows = []
 
     for name, res in results_ts.items():
@@ -27,4 +18,6 @@ def compare_models(results_ts):
         })
 
     df_results = pd.DataFrame(rows)
-    return df_results
+
+    metric_cols = ["Accuracy", "AUC-ROC", "AUC-PR", "Precision", "Recall", "F1"]
+    df_results[metric_cols] = df_results[metric_cols].appl_]()]()_
