@@ -64,9 +64,10 @@ def build_dlinear_model(timesteps, input_dim):
         metrics=["accuracy", tf.keras.metrics.AUC(name="auc")]
     )
     return model
-def get_timeseries_models():
+def get_timeseries_models(timesteps, input_dim):
     return {
-        "TSMixer": build_tsmixer_model,
-        "NBEATS_Classifier": build_nbeats_classifier,
-        "DLinear": build_dlinear_model
+        "TSMixer": build_tsmixer_model(timesteps, input_dim),
+        "NBEATS_Classifier": build_nbeats_classifier(timesteps, input_dim),
+        "DLinear": build_dlinear_model(timesteps, input_dim)
     }
+
