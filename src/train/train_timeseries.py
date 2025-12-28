@@ -1,6 +1,9 @@
 
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import os
 from sklearn.metrics import (
     accuracy_score,
     roc_auc_score,
@@ -94,4 +97,15 @@ def train_ts_models(
         results[name] = metrics
 
     return results
+def save_confusion_matrix(cm, model_name):
+    os.makedirs("outputs/plots", exist_ok=True)
 
+    plt.figure(figsize=(4,4))
+    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
+    plt.xlabel("Predicted")
+    plt.ylabel("Actual")
+    plt.title(f"Confusion Matrix - {model_name}")
+    path = f"outputs/plots/cm_{model_name.lower()}.png"
+    plt.savefig(path, bbox_inches="tight")
+    plt.close()
+    return path
