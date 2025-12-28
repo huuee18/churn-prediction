@@ -32,14 +32,19 @@ def preprocess_data(df):
     df_linear = pd.get_dummies(df, columns=['INSUR_TYPE', 'PAY_FREQ_TYPE'])
 
     # -------- Scaling --------
+    
     num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
     num_cols.remove('CHURN')
-
+    
     scaler_tree = MinMaxScaler()
     df[num_cols] = scaler_tree.fit_transform(df[num_cols])
-
+    
+    linear_num_cols = df_linear.select_dtypes(include=[np.number]).columns.tolist()
+    linear_num_cols.remove('CHURN')
+    
     scaler_linear = StandardScaler()
-    df_linear[num_cols] = scaler_linear.fit_transform(df_linear[num_cols])
-
+    df_linear[linear_num_cols] = scaler_linear.fit_transform(df_linear[linear_num_cols])
+    
     return df, df_linear, num_cols
+
 
