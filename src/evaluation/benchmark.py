@@ -10,7 +10,7 @@ def compare_models(results_ts):
         rows.append({
             "Model": name,
             "Accuracy": res.get("accuracy"),
-            "AUC-ROC": res.get("roc_auc"),
+            "AUC-ROC": res.get("auc_roc"),   # ✅ sửa key
             "AUC-PR": res.get("auc_pr"),
             "Precision": res.get("precision"),
             "Recall": res.get("recall"),
@@ -23,3 +23,5 @@ def compare_models(results_ts):
     df_results[metric_cols] = df_results[metric_cols].apply(
         pd.to_numeric, errors="coerce"
     )
+
+    return df_results   # ✅ DÒNG QUAN TRỌNG NHẤT
