@@ -30,7 +30,10 @@ def preprocess_data(df):
 
     # One-hot only for linear models
     df_linear = pd.get_dummies(df, columns=['INSUR_TYPE', 'PAY_FREQ_TYPE'])
-
+    
+    df = df.replace([np.inf, -np.inf], np.nan).fillna(0)
+    df_linear = df_linear.replace([np.inf, -np.inf], np.nan).fillna(0)
+    
     # -------- Scaling --------
     
     num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
