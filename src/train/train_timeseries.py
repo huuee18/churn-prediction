@@ -66,17 +66,13 @@ def train_ts_models(
 ):
     """
     Training loop cho time-series deep models
+    models: dict[str, keras.Model]
     """
 
     results = {}
 
-    for name, build_fn in models.items():
+    for name, model in models.items():
         print(f"\n🔵 Training model: {name}")
-
-        model = build_fn(
-            timesteps=X_train.shape[1],
-            input_dim=X_train.shape[2] if len(X_train.shape) == 3 else X_train.shape[1]
-        )
 
         model.fit(
             X_train,
@@ -98,3 +94,4 @@ def train_ts_models(
         results[name] = metrics
 
     return results
+
