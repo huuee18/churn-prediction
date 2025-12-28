@@ -20,4 +20,6 @@ def compare_models(results_ts):
     df_results = pd.DataFrame(rows)
 
     metric_cols = ["Accuracy", "AUC-ROC", "AUC-PR", "Precision", "Recall", "F1"]
-    df_results[metric_cols] = df_results[metric_cols].appl_]()]()_
+    df_results[metric_cols] = df_results[metric_cols].apply(
+        pd.to_numeric, errors="coerce"
+    )
