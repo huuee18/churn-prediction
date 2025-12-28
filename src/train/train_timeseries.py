@@ -92,6 +92,11 @@ def train_ts_models(
             y_test,
             threshold=threshold
         )
+        cm_path = save_confusion_matrix(
+            metrics["confusion_matrix"],
+            name
+        )
+        metrics["cm_path"] = cm_path
 
         metrics["model"] = model
         results[name] = metrics
