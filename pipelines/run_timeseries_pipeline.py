@@ -41,11 +41,11 @@ def run_pipeline():
     df = pd.read_csv(DATA_PATH)
 
     # 2. Preprocess
-    df_tree, df_linear, num_cols = preprocess_data(df)
+    df, num_cols = preprocess_data(df)
 
     # 3. Create time-series sequences
     X_seq, y_seq = create_fixed_window_sequences(
-        df_tree,
+        df,
         features=num_cols,
         target="CHURN",
         window_size=WINDOW_SIZE
