@@ -133,7 +133,10 @@ def train_ts_models(
             metrics["results_df"]["churn_prob"],
             name
         )
-        metrics["ks_statistic"] = compute_ks_statistic(y_test, y_prob)
+        metrics["ks_statistic"] = compute_ks_statistic(
+            y_test,
+            metrics["results_df"]["churn_prob"]
+        )
 
         metrics["calibration_path"] = save_calibration_curve(
             y_test,
