@@ -128,6 +128,18 @@ def train_ts_models(
             y_test,
             threshold=threshold
         )
+        metrics["prob_dist_path"] = save_prob_distribution(
+            y_test,
+            metrics["results_df"]["churn_prob"],
+            name
+        )
+        metrics["ks_statistic"] = compute_ks_statistic(y_test, y_prob)
+
+        metrics["calibration_path"] = save_calibration_curve(
+            y_test,
+            metrics["results_df"]["churn_prob"],
+            name
+        )
 
         metrics["cm_path"] = save_confusion_matrix(
             metrics["confusion_matrix"], name
@@ -184,3 +196,54 @@ def save_roc_pr_curve(y_true, y_prob, model_name):
     plt.close()
 
     return path
+from sklearn.calibration import calibration_curve
+
+def save_calibration_curve(y_true, y_prob, model_name, n_bins=10):
+    os.makedirs("outputs/plots", exist_ok=True)
+
+    prob_true, prob_pred = calibration_curve(
+        y_true, y_prob, n_bins=n_bins, strategy="quantile"
+    )
+
+    plt.figure(figsize=(5,5))
+    plt.plot(prob_pred, prob_true, marker="o", label="Model")
+    plt.plot([0,1], [0,1], "--", label="Perfect calibration")
+    plt.xlabel("Predicted probability")
+    plt.ylabel("Observed churn rate")
+    plt.legend()
+    plt.title(f"Calibration Curve - {model_name}")
+
+    path = f"outputs/plots/calibration_{model_name.lower()}.png"
+    plt.savefig(path, bbox_inches="tight")
+    plt.close()
+
+    return path
+def compute_ks_statistic(y_true, y_prob):
+    df = pd.DataFrame({"y_true": y_true, "y_prob": y_prob})
+    df = df.sort_values("y_prob")
+
+    churn = df[df.y_true == 1]["y_prob"]
+    non_churn = df[df.y_true == 0]["y_prob"]
+
+    ks = max(
+        abs((churn <= x).mean() - (non_churn <= x).mean())
+        for x in df["y_prob"]
+    )
+    return ks
+def save_prob_distribution(y_true, y_prob, model_name):
+    os.makedirs("outputs/plots", exist_ok=True)
+
+    plt.figure(figsize=(6,4))
+    plt.hist(y_prob[y_true==0], bins=50, alpha=0.6, label="Non-churn")
+    plt.hist(y_prob[y_true==1], bins=50, alpha=0.6, label="Churn")
+    plt.xlabel("Predicted churn probability")
+    plt.ylabel("Count")
+    plt.legend()
+    plt.title(f"Churn Probability Distribution - {model_name}")
+
+    path = f"outputs/plots/prob_dist_{model_name.lower()}.png"
+    plt.savefig(path, bbox_inches="tight")
+    plt.close()
+
+    return path
+
