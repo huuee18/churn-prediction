@@ -15,6 +15,9 @@ from sklearn.metrics import (
     precision_score,
     confusion_matrix
 )
+# ================================
+# EVALUATION
+# ================================
 def evaluate_model(
     model,
     X_test,
@@ -24,21 +27,31 @@ def evaluate_model(
     threshold_low=0.3
 ):
     """
-    Đánh giá model deep learning cho churn prediction
-    Áp dụng cho TSMixer / N-BEATS / DLinear
+    Evaluate time-series churn prediction models
+    (TSMixer / LSTM / GRU / CNN / NBEATS / DLinear)
     """
 
-    # -------- Predict probability --------
-    y_prob = model.predict(X_test).flatten()
+    # ---------- Predict ----------
+    y_raw = model.predict(X_test)
+    y_prob = np.squeeze(y_raw)
+
+    # Convert logits -> probability if needed
+    if y_prob.min() < 0 or y_prob.max() > 1:
+        y_prob = 1 / (1 + np.exp(-y_prob))
+
     y_pred = (y_prob >= threshold).astype(int)
 
-    # -------- Risk segmentation --------
+    # ---------- Debug distribution ----------
+    unique_pred, counts_pred = np.unique(y_pred, return_counts=True)
+    print("Prediction distribution:", dict(zip(unique_pred, counts_pred)))
+
+    # ---------- Risk segmentation ----------
     risk_level = np.where(
         y_prob >= threshold_high, "High churn risk",
         np.where(y_prob <= threshold_low, "Low churn risk", "Medium churn risk")
     )
 
-    # -------- Result DataFrame --------
+    # ---------- Result dataframe ----------
     results_df = pd.DataFrame({
         "y_true": y_test,
         "churn_prob": y_prob,
@@ -46,19 +59,36 @@ def evaluate_model(
         "risk_level": risk_level
     })
 
-    # -------- Metrics --------
+    # ---------- Confusion matrix ----------
+    cm = confusion_matrix(y_test, y_pred)
+
+    tn, fp, fn, tp = cm.ravel() if cm.size == 4 else (0, 0, 0, 0)
+    specificity = tn / (tn + fp) if (tn + fp) > 0 else 0.0
+    balanced_acc = 0.5 * (recall_score(y_test, y_pred, zero_division=0) + specificity)
+
+    # ---------- Metrics ----------
     metrics = {
         "accuracy": accuracy_score(y_test, y_pred),
-        "auc_roc": roc_auc_score(y_test, y_prob),
-        "auc_pr": average_precision_score(y_test, y_prob),
         "precision": precision_score(y_test, y_pred, zero_division=0),
         "recall": recall_score(y_test, y_pred, zero_division=0),
         "f1": f1_score(y_test, y_pred, zero_division=0),
-        "confusion_matrix": confusion_matrix(y_test, y_pred),
-        "results_df": results_df
+        "specificity": specificity,
+        "balanced_accuracy": balanced_acc,
+        "confusion_matrix": cm,
+        "results_df": results_df,
+        "threshold": threshold
     }
 
+    # ---------- AUC (safe) ----------
+    if len(np.unique(y_test)) == 2:
+        metrics["auc_roc"] = roc_auc_score(y_test, y_prob)
+        metrics["auc_pr"] = average_precision_score(y_test, y_prob)
+    else:
+        metrics["auc_roc"] = np.nan
+        metrics["auc_pr"] = np.nan
+
     return metrics
+
 def train_ts_models(
     models,
     X_train,
