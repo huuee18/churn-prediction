@@ -1,11 +1,9 @@
-
-import pandas as pd
+import os
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-import matplotlib.pyplot as plt
-from sklearn.metrics import roc_curve, precision_recall_curve
-import os
+
 from sklearn.metrics import (
     accuracy_score,
     roc_auc_score,
@@ -13,8 +11,14 @@ from sklearn.metrics import (
     f1_score,
     recall_score,
     precision_score,
-    confusion_matrix
+    confusion_matrix,
+    roc_curve,
+    precision_recall_curve
 )
+
+# ================================
+# EVALUATION
+# ================================
 # ================================
 # EVALUATION
 # ================================
@@ -89,6 +93,11 @@ def evaluate_model(
 
     return metrics
 
+
+
+# ================================
+# TRAIN LOOP
+# ================================
 def train_ts_models(
     models,
     X_train,
@@ -99,11 +108,6 @@ def train_ts_models(
     batch_size=64,
     threshold=0.5
 ):
-    """
-    Training loop cho time-series deep models
-    models: dict[str, keras.Model]
-    """
-
     results = {}
 
     for name, model in models.items():
@@ -124,45 +128,54 @@ def train_ts_models(
             y_test,
             threshold=threshold
         )
-        cm_path = save_confusion_matrix(
-            metrics["confusion_matrix"],
-            name
+
+        metrics["cm_path"] = save_confusion_matrix(
+            metrics["confusion_matrix"], name
         )
-        roc_pr_path = save_roc_pr_curve(
+
+        metrics["roc_pr_path"] = save_roc_pr_curve(
             y_test,
             metrics["results_df"]["churn_prob"],
             name
         )
 
-        metrics["roc_pr_path"] = roc_pr_path
-        metrics["cm_path"] = cm_path
         metrics["model"] = model
         results[name] = metrics
 
     return results
+
+
+# ================================
+# PLOTS
+# ================================
 def save_confusion_matrix(cm, model_name):
     os.makedirs("outputs/plots", exist_ok=True)
 
-    plt.figure(figsize=(4,4))
+    plt.figure(figsize=(4, 4))
     sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
     plt.xlabel("Predicted")
     plt.ylabel("Actual")
     plt.title(f"Confusion Matrix - {model_name}")
+
     path = f"outputs/plots/cm_{model_name.lower()}.png"
     plt.savefig(path, bbox_inches="tight")
     plt.close()
+
     return path
+
+
 def save_roc_pr_curve(y_true, y_prob, model_name):
     os.makedirs("outputs/plots", exist_ok=True)
+
+    if len(np.unique(y_true)) < 2:
+        return None
 
     fpr, tpr, _ = roc_curve(y_true, y_prob)
     precision, recall, _ = precision_recall_curve(y_true, y_prob)
 
-    plt.figure(figsize=(6,5))
+    plt.figure(figsize=(6, 5))
     plt.plot(fpr, tpr, label="ROC")
     plt.plot(recall, precision, label="PR")
-    plt.xlabel("False Positive Rate / Recall")
-    plt.ylabel("True Positive Rate / Precision")
     plt.legend()
     plt.title(f"ROC & PR - {model_name}")
 
