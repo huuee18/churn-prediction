@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+from sklearn.utils.class_weight import compute_class_weight
 
 from sklearn.metrics import (
     accuracy_score,
@@ -135,75 +136,129 @@ def evaluate_model(
 # =========================================
 # TRAIN LOOP
 # =========================================
+
 def train_ts_models(
     models,
-    X_train,
-    y_train,
-    X_test,
-    y_test,
-    epochs=20,
-    batch_size=64,
+    X_train, y_train,
+    X_test, y_test,
+    epochs=10,
+    batch_size=32,
     threshold_metric="f1"
 ):
+
     results = {}
 
-    class_weight = compute_class_weights(y_train)
-    print("Class weight:", class_weight)
+    # =====================================================
+    # 1. Prepare labels (flatten for class_weight)
+    # =====================================================
+    y_train_flat = y_train.reshape(-1)
 
+    class_weights = compute_class_weight(
+        class_weight="balanced",
+        classes=np.unique(y_train_flat),
+        y=y_train_flat
+    )
+
+    class_weight_dict = {
+        int(cls): float(weight)
+        for cls, weight in zip(np.unique(y_train_flat), class_weights)
+    }
+
+    print("⚖️ Class weights:", class_weight_dict)
+
+    # =====================================================
+    # 2. Train each model
+    # =====================================================
     for name, model in models.items():
         print(f"\n🔵 Training model: {name}")
 
-        model.fit(
+        # -------------------------------
+        # Train
+        # -------------------------------
+        history = model.fit(
             X_train,
             y_train,
             validation_data=(X_test, y_test),
             epochs=epochs,
             batch_size=batch_size,
-            class_weight=class_weight,
+            class_weight=class_weight_dict,
             verbose=1
         )
 
-        # ----- Optimal threshold -----
+        # -------------------------------
+        # Predict probabilities
+        # -------------------------------
         y_prob = model.predict(X_test).ravel()
+
+        # -------------------------------
+        # Find optimal threshold
+        # -------------------------------
         best_t, best_score = find_best_threshold(
-            y_test, y_prob, metric=threshold_metric
+            y_test,
+            y_prob,
+            metric=threshold_metric
         )
 
-        print(f"Optimal threshold ({threshold_metric}) = {best_t:.2f} | score = {best_score:.4f}")
+        print(
+            f"🎯 Optimal threshold ({threshold_metric}) = "
+            f"{best_t:.2f} | score = {best_score:.4f}"
+        )
 
-        # ----- Evaluation -----
+        # -------------------------------
+        # Evaluation at optimal threshold
+        # -------------------------------
         metrics = evaluate_model(
-            model,
-            X_test,
-            y_test,
+            model=model,
+            X_test=X_test,
+            y_test=y_test,
             threshold=best_t
         )
 
-        # ----- Plots & stats -----
+        # =================================================
+        # 3. Diagnostics & plots
+        # =================================================
+        metrics["optimal_threshold"] = best_t
+        metrics["threshold_metric"] = threshold_metric
+
         metrics["prob_dist_path"] = save_prob_distribution(
-            y_test, metrics["results_df"]["churn_prob"], name
+            y_test,
+            metrics["results_df"]["churn_prob"],
+            model_name=name
         )
 
         metrics["ks_statistic"] = compute_ks_statistic(
-            y_test, metrics["results_df"]["churn_prob"]
+            y_test,
+            metrics["results_df"]["churn_prob"]
         )
 
         metrics["calibration_path"] = save_calibration_curve(
-            y_test, metrics["results_df"]["churn_prob"], name
+            y_test,
+            metrics["results_df"]["churn_prob"],
+            model_name=name
         )
 
         metrics["cm_path"] = save_confusion_matrix(
-            metrics["confusion_matrix"], name
+            metrics["confusion_matrix"],
+            model_name=name
         )
 
         metrics["roc_pr_path"] = save_roc_pr_curve(
-            y_test, metrics["results_df"]["churn_prob"], name
+            y_test,
+            metrics["results_df"]["churn_prob"],
+            model_name=name
         )
 
-        metrics["model"] = model
-        results[name] = metrics
+        # =================================================
+        # 4. Save results
+        # =================================================
+        results[name] = {
+            "model": model,
+            "history": history,
+            "metrics": metrics
+        }
 
     return results
+
 
 
 # =========================================
