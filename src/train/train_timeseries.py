@@ -7,7 +7,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.utils.class_weight import compute_class_weight
-
 from sklearn.metrics import (
     accuracy_score,
     roc_auc_score,
@@ -137,6 +136,7 @@ def evaluate_model(
 # TRAIN LOOP
 # =========================================
 
+
 def train_ts_models(
     models,
     X_train, y_train,
@@ -254,10 +254,14 @@ def train_ts_models(
         results[name] = {
             "model": model,
             "history": history,
-            "metrics": metrics
+            "X_test": X_test,
+            "y_test": y_test,
+            "X_train": X_train,
+            "y_train": y_train
         }
 
     return results
+
 
 
 
