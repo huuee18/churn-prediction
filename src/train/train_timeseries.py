@@ -257,7 +257,12 @@ def train_ts_models(
             "X_test": X_test,
             "y_test": y_test,
             "X_train": X_train,
-            "y_train": y_train
+            "y_train": y_train,
+
+            # PREDICTIONS (QUAN TRỌNG)
+            "y_prob": y_prob,
+            "optimal_threshold": best_t,
+            "metrics": metrics
         }
 
     return results
