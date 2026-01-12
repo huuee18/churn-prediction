@@ -1,27 +1,39 @@
 import pandas as pd
 
-def compare_models(results_ts):
-    if not results_ts:
-        raise ValueError("results_ts is empty")
+
+def compare_models(results):
+    """
+    Compare models using evaluation metrics
+    computed at optimal threshold
+    """
 
     rows = []
 
-    for name, res in results_ts.items():
+    for name, res in results.items():
+        metrics = res.get("metrics", {})
+
+        if not metrics:
+            print(f"⚠️ Skip model {name}: no metrics found")
+            continue
+
         rows.append({
             "Model": name,
-            "Accuracy": res.get("accuracy"),
-            "AUC-ROC": res.get("auc_roc"),   # ✅ sửa key
-            "AUC-PR": res.get("auc_pr"),
-            "Precision": res.get("precision"),
-            "Recall": res.get("recall"),
-            "F1": res.get("f1")
+            "Accuracy": metrics.get("accuracy"),
+            "AUC-ROC": metrics.get("auc_roc"),
+            "AUC-PR": metrics.get("auc_pr"),
+            "Precision": metrics.get("precision"),
+            "Recall": metrics.get("recall"),
+            "F1": metrics.get("f1"),
+            "KS": metrics.get("ks_statistic"),
+            "Optimal_Threshold": metrics.get("optimal_threshold")
         })
 
-    df_results = pd.DataFrame(rows)
+    if not rows:
+        return None
 
-    metric_cols = ["Accuracy", "AUC-ROC", "AUC-PR", "Precision", "Recall", "F1"]
-    df_results[metric_cols] = df_results[metric_cols].apply(
-        pd.to_numeric, errors="coerce"
-    )
+    df = pd.DataFrame(rows)
 
-    return df_results   # ✅ DÒNG QUAN TRỌNG NHẤT
+    # Sort by business-relevant metric
+    df = df.sort_values("AUC-PR", ascending=False)
+
+    return df
