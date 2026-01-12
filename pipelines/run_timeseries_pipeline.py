@@ -32,7 +32,7 @@ from src.evaluation.advanced_metrics import (
 DATA_PATH = "/content/drive/MyDrive/Luận văn/project/data/Sum 4.csv"
 OUTPUT_DIR = "outputs"
 
-EPOCHS = 15
+EPOCHS = 1
 BATCH_SIZE = 32
 TEST_SIZE = 0.2
 RANDOM_STATE = 42
@@ -112,11 +112,11 @@ def run_pipeline():
     print("📊 Benchmarking models...")
     df_benchmark = compare_models(results_ts)
 
-    df_benchmark.to_csv(
-        f"{OUTPUT_DIR}/results/benchmark_timeseries.csv",
-        index=False
-    )
-    print("✅ Benchmark saved")
+    if df_benchmark is not None:
+        df_benchmark.to_csv("outputs/benchmark_ts.csv", index=False)
+    else:
+        print("❌ No benchmark table generated (no model has metrics)")
+        print("✅ Benchmark saved")
 
     # -------------------------
     # 7. Advanced evaluation
