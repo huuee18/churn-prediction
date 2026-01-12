@@ -1,16 +1,24 @@
 import pandas as pd
+from src.evaluation.evaluate import evaluate_binary_model
 
 
 def compare_models(results):
-    """
-    Compare models using evaluation metrics
-    computed at optimal threshold
-    """
-
     rows = []
 
     for name, res in results.items():
-        metrics = res.get("metrics", {})
+        model = res["model"]
+        X_test = res["X_test"]
+        y_test = res["y_test"]
+
+        metrics = evaluate_binary_model(
+            model,
+            X_test,
+            y_test,
+            threshold_strategy="optimal"
+        )
+
+        res["metrics"] = metrics
+
 
         if not metrics:
             print(f"⚠️ Skip model {name}: no metrics found")
