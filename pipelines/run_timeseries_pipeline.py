@@ -69,7 +69,7 @@ def run_pipeline():
     # 3. Build time-series sequences
     # -------------------------
     print("⏱️ Building time-series sequences...")
-    X_seq, y_seq = create_fixed_window_sequences(
+    X_seq, y_seq, seq_time_index = create_fixed_window_sequences(
         df,
         features=num_cols,
         target="CHURN",
