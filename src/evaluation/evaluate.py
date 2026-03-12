@@ -1,166 +1,67 @@
-# -*- coding: utf-8 -*-
+# src/evaluation/evaluate.py
 import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-import shap
-from sklearn.metrics import roc_auc_score, average_precision_score
+from sklearn.metrics import (
+    accuracy_score,
+    precision_score,
+    recall_score,
+    f1_score,
+    roc_auc_score,
+    average_precision_score
+)
+
+from src.evaluation.advanced_metrics import (
+    compute_ks,
+    recall_at_k
+)
 
 
-# =====================================================
-# 1. Recall@Top-K
-# =====================================================
-def recall_at_k(y_true, y_prob, k_ratio=0.1):
-    """
-    Recall@Top-K%
-    """
-    n_top = int(len(y_prob) * k_ratio)
-    idx = np.argsort(y_prob)[::-1][:n_top]
-
-    y_true_top = y_true[idx]
-    recall_k = y_true_top.sum() / y_true.sum()
-
-    return recall_k
-
-
-# =====================================================
-# 2. Lift Chart
-# =====================================================
-def plot_lift_chart(
-    y_true,
-    y_prob,
-    n_bins=10,
-    save_path="outputs/figures/lift_chart.png"
-):
-    df = pd.DataFrame({
-        "y_true": y_true,
-        "y_prob": y_prob
-    }).sort_values("y_prob", ascending=False)
-
-    df["bin"] = pd.qcut(
-        df.index,
-        q=n_bins,
-        labels=False,
-        duplicates="drop"
-    )
-
-    lift_df = df.groupby("bin").agg(
-        churn_rate=("y_true", "mean"),
-        count=("y_true", "count")
-    ).reset_index()
-
-    baseline = y_true.mean()
-    lift_df["lift"] = lift_df["churn_rate"] / baseline
-
-    plt.figure(figsize=(7,4))
-    plt.plot(lift_df["lift"], marker="o")
-    plt.axhline(1, linestyle="--", color="gray")
-    plt.title("Lift Chart")
-    plt.xlabel("Decile (High → Low risk)")
-    plt.ylabel("Lift")
-    plt.tight_layout()
-    plt.savefig(save_path)
-    plt.close()
-
-    return lift_df, save_path
-
-
-# =====================================================
-# 3. KS Statistic
-# =====================================================
-def compute_ks(y_true, y_prob):
-    df = pd.DataFrame({
-        "y_true": y_true,
-        "y_prob": y_prob
-    }).sort_values("y_prob")
-
-    df["cum_pos"] = df["y_true"].cumsum() / df["y_true"].sum()
-    df["cum_neg"] = (1 - df["y_true"]).cumsum() / (1 - df["y_true"]).sum()
-
-    ks = np.max(np.abs(df["cum_pos"] - df["cum_neg"]))
-    return ks
-
-
-# =====================================================
-# 4. SHAP theo timestep (Time-series)
-# =====================================================
-def shap_timeseries(
+def evaluate_binary_model(
     model,
-    X,
-    feature_names,
-    sample_size=200,
-    save_path="outputs/figures/shap_timeseries.png"
+    X_test,
+    y_test,
+    threshold_strategy="optimal"
 ):
-    import shap
-    import numpy as np
-    import matplotlib.pyplot as plt
-    import seaborn as sns
+    """
+    Standard binary classification evaluation
+    """
 
     # =========================
-    # 1. Sample
+    # Predict probabilities
     # =========================
-    if X.shape[0] > sample_size:
-        idx = np.random.choice(X.shape[0], sample_size, replace=False)
-        X_sample = X[idx]
+    y_prob = model.predict(X_test).reshape(-1)
+
+    # =========================
+    # Threshold
+    # =========================
+    if threshold_strategy == "optimal":
+        thresholds = np.linspace(0.1, 0.9, 81)
+        best_f1, best_thr = 0, 0.5
+
+        for t in thresholds:
+            y_pred = (y_prob >= t).astype(int)
+            f1 = f1_score(y_test, y_pred)
+            if f1 > best_f1:
+                best_f1, best_thr = f1, t
+
+        threshold = best_thr
     else:
-        X_sample = X
+        threshold = 0.5
 
-    # Background = mean sequence
-    background = np.mean(X_sample, axis=0, keepdims=True)
-
-    # =========================
-    # 2. SHAP Explainer
-    # =========================
-    explainer = shap.GradientExplainer(model, background)
-    shap_values = explainer.shap_values(X_sample)
-
-    if isinstance(shap_values, list):
-        shap_values = shap_values[0]
-
-    # 🔥 FIX 1: remove singleton dims
-    shap_values = np.squeeze(shap_values)
-
-    # Expect (N, T, F)
-    if shap_values.ndim != 3:
-        raise ValueError(f"Unexpected SHAP shape: {shap_values.shape}")
+    y_pred = (y_prob >= threshold).astype(int)
 
     # =========================
-    # 3. Aggregate
+    # Metrics
     # =========================
-    shap_abs = np.abs(shap_values)
-    shap_mean = shap_abs.mean(axis=0)   # (T, F)
+    metrics = {
+        "accuracy": accuracy_score(y_test, y_pred),
+        "precision": precision_score(y_test, y_pred, zero_division=0),
+        "recall": recall_score(y_test, y_pred, zero_division=0),
+        "f1": f1_score(y_test, y_pred, zero_division=0),
+        "auc_roc": roc_auc_score(y_test, y_prob),
+        "auc_pr": average_precision_score(y_test, y_prob),
+        "ks_statistic": compute_ks(y_test, y_prob),
+        "recall_at_10pct": recall_at_k(y_test, y_prob, k_ratio=0.1),
+        "optimal_threshold": threshold
+    }
 
-    # =========================
-    # 4. Feature importance
-    # =========================
-    shap_feat = shap_mean.mean(axis=0)  # (F,)
-    shap_feat = shap_feat.flatten()
-
-    assert shap_feat.shape[0] == len(feature_names)
-
-    plt.figure(figsize=(8, 6))
-    plt.barh(feature_names, shap_feat)
-    plt.title("SHAP Feature Importance (Avg over timesteps)")
-    plt.xlabel("Mean |SHAP value|")
-    plt.tight_layout()
-    plt.savefig(save_path)
-    plt.close()
-
-    # =========================
-    # 5. Heatmap (T x F)
-    # =========================
-    plt.figure(figsize=(10, 6))
-    sns.heatmap(
-        shap_mean.T,
-        cmap="RdBu_r",
-        center=0,
-        xticklabels=[f"T-{i}" for i in range(shap_mean.shape[0], 0, -1)],
-        yticklabels=feature_names
-    )
-    plt.title("SHAP Importance by Timestep")
-    plt.xlabel("Time")
-    plt.ylabel("Feature")
-    plt.tight_layout()
-    plt.savefig(save_path.replace(".png", "_heatmap.png"))
-    plt.close()
-
-    return save_path
+    return metrics
