@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
 import os
 import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 import pandas as pd
 from sklearn.model_selection import train_test_split
+from src.evaluation.model_efficiency import benchmark_efficiency
 
 # =========================
 # ADD PROJECT ROOT TO PATH
@@ -110,6 +113,21 @@ def run_pipeline():
     # 6. Standard benchmark
     # -------------------------
     print("📊 Benchmarking models...")
+
+    print("⚙️ Measuring model efficiency...")
+
+    df_efficiency = benchmark_efficiency(
+        models,
+        X_test
+    )
+
+    df_efficiency.to_csv(
+        "outputs/results/model_efficiency.csv",
+        index=False
+    )
+
+    print("✅ Efficiency metrics saved")
+
     df_benchmark = compare_models(results_ts)
 
     if df_benchmark is not None:
