@@ -95,8 +95,10 @@ def shap_timeseries(
     import matplotlib.pyplot as plt
     import seaborn as sns
 
+    print("🔍 Running SHAP for time-series model...")
+
     # =========================
-    # Sample
+    # Sample data
     # =========================
     if X.shape[0] > sample_size:
         idx = np.random.choice(X.shape[0], sample_size, replace=False)
@@ -104,55 +106,122 @@ def shap_timeseries(
     else:
         X_sample = X
 
-    # Background = mean sequence
+    # =========================
+    # Background as mean sequence
+    # =========================
     background = np.mean(X_sample, axis=0, keepdims=True)
 
     # =========================
-    # SAFE EXPLAINER
+    # Create explainer
     # =========================
-    explainer = shap.GradientExplainer(
-        model,
-        background
-    )
+    explainer = shap.GradientExplainer(model, background)
 
+    # =========================
+    # Compute SHAP values
+    # =========================
     shap_values = explainer.shap_values(X_sample)
 
+    # Handle list output (binary classification)
     if isinstance(shap_values, list):
-        shap_values = shap_values[0]  # binary class
+        shap_values = shap_values[0]
 
-    # (N, T, F)
+    shap_values = np.array(shap_values)
+
+    print("Original SHAP shape:", shap_values.shape)
+
+    # =========================
+    # Normalize dimension safely
+    # =========================
+
+    # Case: (N, T, F, 1) -> remove last dim
+    if len(shap_values.shape) == 4 and shap_values.shape[-1] == 1:
+        shap_values = shap_values.squeeze(-1)
+
+    # Case: (1, N, T, F) -> remove first dim
+    elif len(shap_values.shape) == 4 and shap_values.shape[0] == 1:
+        shap_values = shap_values.squeeze(0)
+
+    print("After squeeze SHAP shape:", shap_values.shape)
+
+    if len(shap_values.shape) != 3:
+        raise ValueError(
+            f"Unexpected SHAP shape after processing: {shap_values.shape}. "
+            "Expect (N, T, F)"
+        )
+
+    if len(shap_values.shape) == 4:
+        # Sometimes returns (1, N, T, F)
+        shap_values = shap_values.squeeze(0)
+
+    if len(shap_values.shape) != 3:
+        raise ValueError(
+            f"Unexpected SHAP shape: {shap_values.shape}. "
+            "Expect (N, T, F)"
+        )
+
+    N, T, F = shap_values.shape
+
+    print(f"Processed SHAP shape: N={N}, T={T}, F={F}")
+
+    # Validate feature names
+    if len(feature_names) != F:
+        print(
+            f"⚠️ Feature names length mismatch: "
+            f"{len(feature_names)} vs SHAP features {F}"
+        )
+        feature_names = feature_names[:F]
+
+    # =========================
+    # Aggregate importance
+    # =========================
     shap_abs = np.abs(shap_values)
-    shap_mean = shap_abs.mean(axis=0)  # (T, F)
 
-    # =========================
-    # Feature importance
-    # =========================
+    # Mean over samples -> (T, F)
+    shap_mean = shap_abs.mean(axis=0)
+
+    # Feature importance over all timesteps -> (F,)
     shap_feat = shap_mean.mean(axis=0)
 
-    plt.figure(figsize=(8, 5))
-    plt.barh(feature_names, shap_feat)
+    # Ensure 1D
+    shap_feat = shap_feat.flatten()
+
+    # =========================
+    # Plot feature importance
+    # =========================
+    plt.figure(figsize=(10, 6))
+
+    y_pos = np.arange(len(feature_names))
+
+    plt.barh(y_pos, shap_feat)
+    plt.yticks(y_pos, feature_names)
     plt.title("SHAP Feature Importance (Avg over timesteps)")
     plt.tight_layout()
+
     plt.savefig(save_path)
     plt.close()
 
     # =========================
-    # Time heatmap
+    # Heatmap by timestep
     # =========================
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(12, 7))
+
     sns.heatmap(
         shap_mean.T,
         cmap="RdBu_r",
         center=0,
-        xticklabels=[f"T-{i}" for i in range(shap_mean.shape[0], 0, -1)],
+        xticklabels=[f"T-{i}" for i in range(T, 0, -1)],
         yticklabels=feature_names
     )
+
     plt.title("SHAP Importance by Timestep")
     plt.xlabel("Time")
     plt.ylabel("Feature")
     plt.tight_layout()
+
     plt.savefig(save_path.replace(".png", "_heatmap.png"))
     plt.close()
+
+    print(f"✅ SHAP saved to {save_path}")
 
     return save_path
 
