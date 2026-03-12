@@ -1,9 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-EDA Script for Churn Prediction – Insurance Dataset
-Author: Thesis Project
-"""
-
 import os
 import pandas as pd
 import numpy as np
@@ -13,7 +7,7 @@ import seaborn as sns
 # ===============================
 # CONFIG
 # ===============================
-DATA_PATH = "/content/drive/MyDrive/Luận văn/project/data/Sum 1.csv"
+DATA_PATH = "/content/drive/MyDrive/Luận văn/project/data/Sum 4.csv"
 TARGET_COL = "CHURN"
 TIME_COL = "YEAR_MONTH_TRANS"  # None nếu không có
 
