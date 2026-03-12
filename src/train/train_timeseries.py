@@ -4,6 +4,7 @@
 import os
 import numpy as np
 import pandas as pd
+import time
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.utils.class_weight import compute_class_weight
@@ -175,6 +176,7 @@ def train_ts_models(
         # -------------------------------
         # Train
         # -------------------------------
+        start_time = time.perf_counter()
         history = model.fit(
             X_train,
             y_train,
@@ -184,7 +186,9 @@ def train_ts_models(
             class_weight=class_weight_dict,
             verbose=1
         )
+        end_time = time.perf_counter()
 
+        training_time = end_time - start_time
         # -------------------------------
         # Predict probabilities
         # -------------------------------
@@ -262,7 +266,8 @@ def train_ts_models(
             # PREDICTIONS (QUAN TRỌNG)
             "y_prob": y_prob,
             "optimal_threshold": best_t,
-            "metrics": metrics
+            "metrics": metrics,
+            "training_time_sec": training_time
         }
 
     return results
