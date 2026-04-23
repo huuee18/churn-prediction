@@ -145,8 +145,8 @@ def train_ts_models(
     epochs=10,
     batch_size=32,
     threshold_metric="f1",
-    use_early_stopping=False,  # Thêm mới
-    early_stopping_patience=5   # Thêm mới
+    #use_early_stopping=False,  # Thêm mới
+    #early_stopping_patience=20   # Thêm mới
 ):
     results = {}
 
@@ -169,22 +169,6 @@ def train_ts_models(
     print("⚖️ Class weights:", class_weight_dict)
 
     # =====================================================
-    # 2. Early stopping callback (nếu được bật)
-    # =====================================================
-    callbacks = []
-    if use_early_stopping:
-        from tensorflow.keras.callbacks import EarlyStopping
-        early_stop = EarlyStopping(
-            monitor='val_auc_roc',  # Theo dõi AUC-ROC trên validation
-            mode='max',
-            patience=early_stopping_patience,
-            restore_best_weights=True,
-            verbose=1
-        )
-        callbacks.append(early_stop)
-        print(f"🛑 Early stopping enabled (patience={early_stopping_patience})")
-
-    # =====================================================
     # 3. Train each model
     # =====================================================
     for name, model in models.items():
@@ -201,7 +185,7 @@ def train_ts_models(
             epochs=epochs,
             batch_size=batch_size,
             class_weight=class_weight_dict,
-            callbacks=callbacks,  # Thêm callbacks
+            #callbacks=callbacks,  # Thêm callbacks
             verbose=1
         )
         end_time = time.perf_counter()
