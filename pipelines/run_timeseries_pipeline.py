@@ -117,7 +117,7 @@ def run_pipeline():
     print("⚙️ Measuring model efficiency...")
 
     df_efficiency = benchmark_efficiency(
-        models,
+        ts_models,
         X_test
     )
 
