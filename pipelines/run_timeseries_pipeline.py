@@ -38,7 +38,7 @@ DATA_PATH = "/content/drive/MyDrive/Luận văn/project/data/Sum 4.csv"
 OUTPUT_DIR = "outputs"
 
 # ========== CẢI TIẾN 1: Tăng epochs cho training thật ==========
-EPOCHS = 50  # Từ 1 lên 50-100 để model học tốt
+EPOCHS = 20  # Từ 1 lên 50-100 để model học tốt
 BATCH_SIZE = 32
 TEST_SIZE = 0.2
 RANDOM_STATE = 42
@@ -118,8 +118,8 @@ def run_pipeline():
         X_test, y_test,
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
-        use_early_stopping=USE_EARLY_STOPPING,
-        early_stopping_patience=EARLY_STOPPING_PATIENCE
+        #use_early_stopping=USE_EARLY_STOPPING,
+        #early_stopping_patience=EARLY_STOPPING_PATIENCE
     )
 
     # ========== CẢI TIẾN 3: In và lưu thời gian training ==========
