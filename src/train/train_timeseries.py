@@ -144,9 +144,10 @@ def train_ts_models(
     X_test, y_test,
     epochs=10,
     batch_size=32,
-    threshold_metric="f1"
+    threshold_metric="f1",
+    use_early_stopping=False,  # Thêm mới
+    early_stopping_patience=5   # Thêm mới
 ):
-
     results = {}
 
     # =====================================================
@@ -168,7 +169,23 @@ def train_ts_models(
     print("⚖️ Class weights:", class_weight_dict)
 
     # =====================================================
-    # 2. Train each model
+    # 2. Early stopping callback (nếu được bật)
+    # =====================================================
+    callbacks = []
+    if use_early_stopping:
+        from tensorflow.keras.callbacks import EarlyStopping
+        early_stop = EarlyStopping(
+            monitor='val_auc_roc',  # Theo dõi AUC-ROC trên validation
+            mode='max',
+            patience=early_stopping_patience,
+            restore_best_weights=True,
+            verbose=1
+        )
+        callbacks.append(early_stop)
+        print(f"🛑 Early stopping enabled (patience={early_stopping_patience})")
+
+    # =====================================================
+    # 3. Train each model
     # =====================================================
     for name, model in models.items():
         print(f"\n🔵 Training model: {name}")
@@ -184,11 +201,17 @@ def train_ts_models(
             epochs=epochs,
             batch_size=batch_size,
             class_weight=class_weight_dict,
+            callbacks=callbacks,  # Thêm callbacks
             verbose=1
         )
         end_time = time.perf_counter()
 
         training_time = end_time - start_time
+        
+        # Lấy số epochs thực tế đã train (nếu early stopping dừng sớm)
+        epochs_trained = len(history.history['loss'])
+        print(f"⏱️ Training completed: {epochs_trained}/{epochs} epochs, {training_time:.2f} seconds")
+
         # -------------------------------
         # Predict probabilities
         # -------------------------------
@@ -219,7 +242,7 @@ def train_ts_models(
         )
 
         # =================================================
-        # 3. Diagnostics & plots
+        # 4. Diagnostics & plots
         # =================================================
         metrics["optimal_threshold"] = best_t
         metrics["threshold_metric"] = threshold_metric
@@ -253,7 +276,7 @@ def train_ts_models(
         )
 
         # =================================================
-        # 4. Save results
+        # 5. Save results (THÊM training_time và epochs_trained)
         # =================================================
         results[name] = {
             "model": model,
@@ -263,11 +286,12 @@ def train_ts_models(
             "X_train": X_train,
             "y_train": y_train,
 
-            # PREDICTIONS (QUAN TRỌNG)
+            # PREDICTIONS
             "y_prob": y_prob,
             "optimal_threshold": best_t,
             "metrics": metrics,
-            "training_time_sec": training_time
+            "training_time_sec": training_time,      # Thêm mới
+            "epochs_trained": epochs_trained         # Thêm mới
         }
 
     return results
