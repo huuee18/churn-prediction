@@ -34,11 +34,11 @@ from src.evaluation.advanced_metrics import (
 # =========================
 # CONFIG
 # =========================
-DATA_PATH = "/content/drive/MyDrive/Luận văn/project/data/Sum 4.csv"
+DATA_PATH = "/content/drive/MyDrive/Luận văn/project/data/test.csv"
 OUTPUT_DIR = "outputs"
 
 # ========== CẢI TIẾN 1: Tăng epochs cho training thật ==========
-EPOCHS = 20  # Từ 1 lên 50-100 để model học tốt
+EPOCHS = 30  # Từ 1 lên 50-100 để model học tốt
 BATCH_SIZE = 32
 TEST_SIZE = 0.2
 RANDOM_STATE = 42
