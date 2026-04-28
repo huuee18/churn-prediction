@@ -1,78 +1,242 @@
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import LabelEncoder, MinMaxScaler, StandardScaler
+
 
 def preprocess_data(df):
-    df = df.sort_values(['POL_NUM', 'YEAR_MONTH_TRANS'])
+    """
+    FINAL VERSION
+    Optimized preprocessing for churn prediction
+    - Time-series safe
+    - Leakage-safe feature engineering
+    - Strong churn behavior signals
+    - Suitable for TSMixer / LSTM / GRU / XGBoost
+    """
 
-    # =====================
-    # 1. Feature engineering (SAFE)
-    # =====================
-    df['CLAIM_RATIO'] = df['CLAIM_AMT'] / (df['PREM_AMT'] + 1)
+    # ==========================================
+    # 0. SORT TIME ORDER
+    # ==========================================
+    df = df.sort_values(
+        ["POL_NUM", "YEAR_MONTH_TRANS"]
+    ).copy()
 
-    # clip ratio (rất quan trọng)
-    df['CLAIM_RATIO'] = df['CLAIM_RATIO'].clip(0, 5)
+    # ==========================================
+    # 1. BASIC CLEANING
+    # ==========================================
+    numeric_base_cols = [
+        "PREM",
+        "PREM_AMT",
+        "POS_AMT",
+        "CLAIM_AMT",
+        "CLAIM_COUNT"
+    ]
 
-    cols_to_log = ['PREM', 'PREM_AMT', 'POS_AMT', 'CLAIM_AMT']
-    for col in cols_to_log:
-        df[f'{col}_LOG'] = np.log1p(df[col].clip(0))
+    for col in numeric_base_cols:
+        df[col] = pd.to_numeric(
+            df[col],
+            errors="coerce"
+        ).fillna(0)
 
-    df['HAS_CLAIM'] = (df['CLAIM_COUNT'] > 0).astype(int)
-    df['HAS_POS_AMT'] = (df['POS_AMT'] > 0).astype(int)
+    # ==========================================
+    # 2. CORE FEATURE ENGINEERING
+    # ==========================================
+    df["CLAIM_RATIO"] = (
+        df["CLAIM_AMT"] /
+        (df["PREM_AMT"] + 1)
+    ).clip(0, 5)
 
-    # =====================
-    # 2. PAY_FREQ (business-safe)
-    # =====================
-    freq_map = {1:12, 2:4, 3:2, 4:1, 5:1, 6:0}
-    df['PAY_FREQ_NUM'] = df['PAY_FREQ_TYPE'].map(freq_map)
-    df['IS_SINGLE_PAY'] = (df['PAY_FREQ_NUM'] <= 1).astype(int)
+    log_cols = [
+        "PREM",
+        "PREM_AMT",
+        "POS_AMT",
+        "CLAIM_AMT"
+    ]
 
-    # =====================
-    # 3. Lag & Rolling (ANTI-LEAKAGE)
-    # =====================
-    lag_features = ['PREM_AMT', 'POS_AMT', 'CLAIM_AMT']
-    for col in lag_features:
-        df[f'{col}_LAG_1'] = df.groupby('POL_NUM')[col].shift(1)
-        df[f'{col}_ROLL_MEAN_3'] = (
-            df.groupby('POL_NUM')[col]
-              .rolling(3, min_periods=2)
-              .mean()
-              .reset_index(0, drop=True)
+    for col in log_cols:
+        df[f"{col}_LOG"] = np.log1p(
+            df[col].clip(lower=0)
         )
 
-        # trend thay vì absolute value
-        df[f'{col}_DELTA_1'] = df[col] - df[f'{col}_LAG_1']
-
-    # flag tháng đầu (thay vì fill 0)
-    df['IS_FIRST_MONTH'] = (
-        df.groupby('POL_NUM').cumcount() == 0
+    df["HAS_CLAIM"] = (
+        df["CLAIM_COUNT"] > 0
     ).astype(int)
 
-    # =====================
-    # 4. Categorical (SAFE cho deep model)
-    # =====================
-    insur_freq = df['INSUR_TYPE'].value_counts(normalize=True)
-    df['INSUR_TYPE_FREQ'] = df['INSUR_TYPE'].map(insur_freq)
+    df["HAS_POS_AMT"] = (
+        df["POS_AMT"] > 0
+    ).astype(int)
 
-    # =====================
-    # 5. Missing handling (KHÔNG fill 0 bừa)
-    # =====================
+    # ==========================================
+    # 3. PAYMENT BEHAVIOR FEATURES
+    # ==========================================
+    freq_map = {
+        1: 12,
+        2: 4,
+        3: 2,
+        4: 1,
+        5: 1,
+        6: 0
+    }
+
+    df["PAY_FREQ_NUM"] = df[
+        "PAY_FREQ_TYPE"
+    ].map(freq_map).fillna(0)
+
+    df["IS_SINGLE_PAY"] = (
+        df["PAY_FREQ_NUM"] <= 1
+    ).astype(int)
+
+    # ==========================================
+    # 4. TIME SERIES FEATURES
+    # ==========================================
+    lag_cols = [
+        "PREM_AMT",
+        "POS_AMT",
+        "CLAIM_AMT"
+    ]
+
+    for col in lag_cols:
+
+        grp = df.groupby("POL_NUM")[col]
+
+        # lag
+        df[f"{col}_LAG1"] = grp.shift(1)
+        df[f"{col}_LAG2"] = grp.shift(2)
+        df[f"{col}_LAG3"] = grp.shift(3)
+
+        # rolling mean
+        df[f"{col}_ROLL3"] = (
+            grp.shift(1)
+               .groupby(df["POL_NUM"])
+               .rolling(3, min_periods=1)
+               .mean()
+               .reset_index(level=0, drop=True)
+        )
+
+        # rolling std
+        df[f"{col}_STD3"] = (
+            grp.shift(1)
+               .groupby(df["POL_NUM"])
+               .rolling(3, min_periods=2)
+               .std()
+               .reset_index(level=0, drop=True)
+        )
+
+        # delta
+        df[f"{col}_DELTA1"] = (
+            df[col] - df[f"{col}_LAG1"]
+        )
+
+        # decline
+        df[f"{col}_DECLINE_FLAG"] = (
+            df[col] < df[f"{col}_LAG1"]
+        ).astype(int)
+
+    # ==========================================
+    # 5. CHURN-SPECIFIC FEATURES
+    # ==========================================
+
+    # premium = 0
+    df["ZERO_PREM_FLAG"] = (
+        df["PREM_AMT"] == 0
+    ).astype(int)
+
+    # zero premium last 3 months
+    df["ZERO_PREM_3M"] = (
+        df.groupby("POL_NUM")["ZERO_PREM_FLAG"]
+          .shift(1)
+          .groupby(df["POL_NUM"])
+          .rolling(3, min_periods=1)
+          .sum()
+          .reset_index(level=0, drop=True)
+    )
+
+    # contract age
+    df["POLICY_AGE_MONTH"] = (
+        df.groupby("POL_NUM")
+          .cumcount() + 1
+    )
+
+    # first month flag
+    df["IS_FIRST_MONTH"] = (
+        df["POLICY_AGE_MONTH"] == 1
+    ).astype(int)
+
+    # premium decline streak (very useful)
+    df["PREM_DECLINE_STREAK"] = (
+        df.groupby("POL_NUM")["PREM_AMT_DECLINE_FLAG"]
+          .rolling(3, min_periods=1)
+          .sum()
+          .reset_index(level=0, drop=True)
+    )
+
+    # months since claim
+    df["CLAIM_EVENT"] = (
+        df["CLAIM_COUNT"] > 0
+    ).astype(int)
+
+    df["MONTHS_SINCE_CLAIM"] = (
+        df.groupby("POL_NUM")["CLAIM_EVENT"]
+          .cumsum()
+    )
+
+    # ==========================================
+    # 6. CATEGORICAL ENCODING
+    # ==========================================
+    if "INSUR_TYPE" in df.columns:
+
+        insur_freq = df["INSUR_TYPE"].value_counts(
+            normalize=True
+        )
+
+        df["INSUR_TYPE_FREQ"] = df[
+            "INSUR_TYPE"
+        ].map(insur_freq)
+
+    # ==========================================
+    # 7. MISSING FLAGS
+    # ==========================================
     for col in df.columns:
-        if col != 'CHURN' and df[col].isna().any():
-            df[f'{col}_MISSING'] = df[col].isna().astype(int)
 
-    df = df.fillna(df.median(numeric_only=True))
+        if col != "CHURN" and df[col].isna().any():
 
-    # =====================
-    # 6. Noise injection (giảm overfit cho deep TS)
-    # =====================
-    num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-    num_cols.remove('CHURN')
+            df[f"{col}_MISS"] = (
+                df[col].isna().astype(int)
+            )
 
-    noise = np.random.normal(0, 0.01, size=df[num_cols].shape)
-    df[num_cols] = df[num_cols] + noise
+    # ==========================================
+    # 8. FILL MISSING
+    # ==========================================
+    num_cols = df.select_dtypes(
+        include=np.number
+    ).columns.tolist()
+
+    remove_cols = [
+        "CHURN",
+        "POL_NUM",
+        "YEAR_MONTH_TRANS"
+    ]
+
+    num_cols = [
+        c for c in num_cols
+        if c not in remove_cols
+    ]
+
+    for col in num_cols:
+        df[col] = df[col].fillna(
+            df[col].median()
+        )
+
+    # ==========================================
+    # 9. FINAL CLEANUP
+    # ==========================================
+    df.replace(
+        [np.inf, -np.inf],
+        np.nan,
+        inplace=True
+    )
+
+    for col in num_cols:
+        df[col] = df[col].fillna(
+            df[col].median()
+        )
 
     return df, num_cols
-
-
-
